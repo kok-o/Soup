@@ -74,9 +74,14 @@ def resolve_trainer(cfg, trainer_kwargs: dict | None = None):
     """
     kwargs = dict(trainer_kwargs or {})
     if getattr(cfg, "backend", None) == "mlx":
-        from soup_cli.config.schema import resolve_mlx_task
+        from soup_cli.config.schema import resolve_mlx_task, validate_mlx_vision_sft
 
         loss = getattr(getattr(cfg, "training", None), "preference_loss", None)
         task = resolve_mlx_task(cfg.task, loss)
+        if task == "sft" and getattr(cfg, "modality", "text") == "vision":
+            from soup_cli.trainer.mlx_vision_sft import MLXVisionSFTTrainerWrapper
+
+            validate_mlx_vision_sft(cfg)
+            return MLXVisionSFTTrainerWrapper, kwargs
         return get_mlx_trainer(task), kwargs
     return None, kwargs

@@ -1225,6 +1225,25 @@ image structs (`{"bytes": ..., "path": ...}`) written by `datasets` are also acc
 
 `soup data inspect` resolves image paths the same way, or uses `--image-dir` when provided, and automatically shows image statistics (count, formats, missing files) for vision datasets.
 
+### Dense Qwen2-VL SFT on MLX
+
+Install the optional vision runtime with `pip install "soup-cli[mlx-vision]"`.
+It uses MLX-VLM 0.7.12 and MLX 0.32.4 or later. In a vision SFT config set
+`backend: mlx` and `training.quantization: none`, and select a dense Qwen2-VL
+base that supplies its processor and chat template. Use one local LLaVA or
+ShareGPT4V dataset with one image per row and a positive LoRA rank.
+
+By default, all assistant responses contribute to the loss. Set
+`data.mask_history: true` to supervise only the last assistant turn, or set
+`data.train_on_responses_only: false` to supervise text from the whole
+conversation. Expanded image positions count toward `data.max_length` and
+condition predictions. Sequences over that budget are refused before the update.
+
+The result contains language-decoder LoRA weights and an MLX-VLM adapter config.
+For inference, use `mlx_vlm.load(base, adapter_path=output_directory)` with the
+original processor and base revision. `soup train --resume <adapter-file>`
+loads matching adapter tensors and starts a fresh optimizer and schedule.
+
 
 ## Audio / Speech Fine-tuning
 

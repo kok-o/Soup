@@ -194,6 +194,11 @@ mlx = [
     # depending on that transitive requirement remaining undeclared here.
     "transformers>=5.16.1,<6.0.0",
 ]
+mlx-vision = [
+    "mlx>=0.32.4",
+    "mlx-vlm==0.7.12",
+    "transformers>=5.16.1,<6.0.0",
+]
 cce = ["cut-cross-entropy>=24.10.0"]
 tui = ["textual>=0.50.0"]
 # v0.53.8 #89 — bundle MLflow / SwanLab / Trackio for `--tracker` users.

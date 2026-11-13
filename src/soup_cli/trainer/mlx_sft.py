@@ -499,6 +499,8 @@ class MLXSFTTrainerWrapper:
 
     def setup(self, dataset: dict) -> None:
         """Load MLX model, configure LoRA, prepare dataset."""
+        if self.config.modality == "vision":
+            raise ValueError("MLX vision SFT requires the MLX-VLM trainer.")
         self._require_mlx()
         self._check_unsupported()
         if self.config.data.format == "pre_tokenized":

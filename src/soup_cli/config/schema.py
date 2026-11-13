@@ -5572,6 +5572,49 @@ def _unapplied_lora_patterns_message(
     )
 
 
+def validate_mlx_vision_sft(cfg: "SoupConfig") -> None:
+    """Validate the dense, single-image MLX-VLM SFT settings without importing MLX."""
+    data, training = cfg.data, cfg.training
+    if (not isinstance(data.train, str) or _classify_data_train_entry(data.train) != "local"):
+        raise ValueError("MLX vision SFT requires a single local file in data.train.")
+    if data.format not in {"llava", "sharegpt4v"}:
+        raise ValueError("MLX vision SFT requires data.format: llava or sharegpt4v.")
+    if training.quantization != "none":
+        raise ValueError("MLX vision SFT requires training.quantization: none.")
+    if training.lora.r < 1:
+        raise ValueError("MLX vision SFT requires training.lora.r >= 1.")
+    if not isinstance(training.gradient_checkpointing, bool):
+        raise ValueError("MLX vision SFT requires boolean training.gradient_checkpointing.")
+    if cfg.eval is not None:
+        raise ValueError("MLX vision SFT uses the native validation split; eval is unsupported.")
+
+    # A config can be reloaded from a full model_dump, so compare unsupported
+    # fields with their defaults rather than rejecting merely for being present.
+    supported_data = {
+        "train", "format", "image_dir", "val_split", "max_length",
+        "train_on_responses_only", "train_on_prompt", "mask_history",
+    }
+    supported_training = {
+        "epochs", "lr", "batch_size", "gradient_accumulation_steps", "seed", "data_seed",
+        "warmup_ratio", "weight_decay", "max_grad_norm", "lora", "quantization",
+        "optimizer", "scheduler", "save_steps", "logging_steps", "eval_steps",
+        "gradient_checkpointing",
+    }
+    unsupported = []
+    for prefix, config, supported in (
+        ("data", data, supported_data),
+        ("training", training, supported_training),
+        ("training.lora", training.lora, {"r", "alpha", "dropout", "target_modules"}),
+    ):
+        for name, field in type(config).model_fields.items():
+            if name not in supported and getattr(config, name) != field.get_default(
+                call_default_factory=True
+            ):
+                unsupported.append(f"{prefix}.{name}")
+    if unsupported:
+        raise ValueError("MLX vision SFT does not support " + ", ".join(unsupported) + ".")
+
+
 class SoupConfig(BaseModel):
     """Root config for soup.yaml."""
 
@@ -8965,6 +9008,9 @@ class SoupConfig(BaseModel):
         Every other task is refused here rather than at ``train()`` time.
         """
         if self.backend != "mlx":
+            return self
+        if self.task == "sft" and self.modality == "vision":
+            validate_mlx_vision_sft(self)
             return self
         task = resolve_mlx_task(self.task, self.training.preference_loss)
         task_label = f"task={self.task!r}"
